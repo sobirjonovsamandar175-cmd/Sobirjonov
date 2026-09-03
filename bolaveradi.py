@@ -65,9 +65,10 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-telethon_client = TelegramClient(
-    'humo_userbot_session', API_ID, API_HASH
-)
+session_str = os.getenv("TELETHON_SESSION")
+   telethon_client = TelegramClient(
+       StringSession(session_str), API_ID, API_HASH
+   )
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
@@ -955,7 +956,7 @@ async def pay_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     amount = int(clean_text)
     if amount < 1000 or amount > 2500000:
-        await update.message.reply_text("❌ Summa 1 000 so'm va 2 500 000 so'm oralig'ida bo'lishi kerak.")
+        await update.message.reply_text("❌ Summa 5 000 so'm va 2 500 000 so'm oralig'ida bo'lishi kerak.")
         return PAY_AMOUNT
 
     uid = update.message.from_user.id
@@ -1376,10 +1377,12 @@ async def post_init(application):
         )
     else:
         print("✅ Telethon userbot sessiyasi muvaffaqiyatli ulandi!")
-async def post_shutdown(application: Application):
-    if telethon_client.is_connected():
-        await telethon_client.disconnect()
-        logger.info("🛑 Telethon client o'chirildi.")
+async def post_init(application):
+    await telethon_client.connect()
+    if await telethon_client.is_user_authorized():
+        print("✅ Telethon StringSession orqali ulandi!")
+    else:
+        print("🛑 Sessiya kodi xato yoki eskirgan!")
 
 def main():
     request = HTTPXRequest(connect_timeout=30.0, read_timeout=30.0)
