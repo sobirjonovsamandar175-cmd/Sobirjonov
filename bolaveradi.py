@@ -65,7 +65,7 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-telethon_client = TelegramClient('humo_userbot_session_v2', API_ID, API_HASH)
+await telethon_client.start(bot_token=BOT_TOKEN)
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
