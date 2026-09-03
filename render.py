@@ -70,7 +70,7 @@ session_str = os.getenv("TELETHON_SESSION", "")
 if session_str:
     telethon_client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
 else:
-    telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
+    telethon_client = TelegramClient('humo_userbot_session.session', API_ID, API_HASH)
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
@@ -138,10 +138,10 @@ def init_db():
     """)
 
     default_settings = [
-        ('price_star', 190),
-        ('premium_3', 145000),
-        ('premium_6', 195000),
-        ('premium_12', 340000),
+        ('price_star', 195),
+        ('premium_3', 156000),
+        ('premium_6', 206000),
+        ('premium_12', 365000),
     ]
     for key, val in default_settings:
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, val))
@@ -959,7 +959,7 @@ async def pay_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     amount = int(clean_text)
     if amount < 1000 or amount > 2500000:
-        await update.message.reply_text("❌ Summa 1 000 so'm va 2 500 000 so'm oralig'ida bo'lishi kerak.")
+        await update.message.reply_text("❌ Summa 5 000 so'm va 2 500 000 so'm oralig'ida bo'lishi kerak.")
         return PAY_AMOUNT
 
     uid = update.message.from_user.id
