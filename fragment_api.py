@@ -11,9 +11,9 @@ import html
 import ssl as _ssl
 import warnings
 import threading
+import http.server
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from aiohttp import web
 
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.request import HTTPXRequest
@@ -22,18 +22,16 @@ from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler,
     CallbackQueryHandler, ContextTypes, ConversationHandler, filters
 )
-from telegram.error import TelegramError
 from telethon import TelegramClient, events
+
 from fragment_api import (
     STARS_PACKAGES,
     _get_ton_balance,
-    ...
-)
     get_fragment_stars_prices_bulk,
     api_buy_stars,
     api_buy_premium,
     fragment_wallet_command,
-    fragment_cookie_status_command,
+    fragment_cookie_status_command
 )
 
 # PTBUserWarning ogohlantirishini yashirish
@@ -71,7 +69,7 @@ _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
 telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
 
-# ==================== RENDER KEEPALIVE SERVER (THREADING) ====================
+# ==================== RENDER KEEPALIVE SERVER ====================
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -79,11 +77,9 @@ class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is 24/7 active!")
 
     def log_message(self, format, *args):
-        return  # Render loglarini keraksiz so'rovlar bilan to'ldirmaydi
+        return
 
 def run_dummy_server():
-    """Render port-scan timeout xatoligini oldini olish uchun synchronous HTTP server"""
-    import http.server
     port = int(os.environ.get("PORT", 8080))
     server = http.server.HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     logger.info(f"🌐 Keep-alive server {port}-portda muvaffaqiyatli ishga tushdi!")
@@ -279,7 +275,7 @@ def create_payment(user_id, amount):
     exact_amount = amount + random_add
 
     code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    expires_at = created_at + 300  # 5 daqiqa
+    expires_at = created_at + 300
 
     cursor.execute("""
         INSERT INTO pending_payments (user_id, base_amount, exact_amount, code, created_at, expires_at, status)
@@ -1144,7 +1140,7 @@ async def admin_main_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     elif text == "📢 Xabar yuborish":
         await update.message.reply_text(
-            "✍️ Barcha obunachilarga yuboriladigan xabarni kiriting (Matn, rasm yoki media formatda bo'lishi mumkin):",
+            "✍️ Barcha obunachilarga yuboriladigan xabarni kiriting:",
             reply_markup=ReplyKeyboardMarkup([["◄ Orqaga"]], resize_keyboard=True)
         )
         return ADMIN_BROADCAST_MSG
@@ -1491,9 +1487,7 @@ def main():
 
 if __name__ == '__main__':
     try:
-        # Render port-scan xatosining oldini olish uchun dummy HTTP serverni darhol thread'da ishga tushiramiz
         threading.Thread(target=run_dummy_server, daemon=True).start()
-        
         main()
     except (KeyboardInterrupt, SystemExit):
         print("Bot to'xtatildi.")
