@@ -1079,10 +1079,10 @@ async def admin_main_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ADMIN_MAIN
 
     elif text == "⚙️ Narxlarni o'zgartirish":
-        p_star = get_setting('price_star', 190)
-        p3 = get_setting('premium_3', 145000)
-        p6 = get_setting('premium_6', 195000)
-        p12 = get_setting('premium_12', 340000)
+        p_star = get_setting('price_star', 195)
+        p3 = get_setting('premium_3', 155000)
+        p6 = get_setting('premium_6', 205000)
+        p12 = get_setting('premium_12', 360000)
 
         menu = ReplyKeyboardMarkup([
             [f"Stars narxi ({p_star} so'm/ta)"],
@@ -1368,11 +1368,14 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.error("Xatolik yuz berdi:", exc_info=context.error)
 
 # ==================== POST INIT VA POST SHUTDOWN ====================
-async def post_init(application: Application):
-    telethon_client.ptb_bot = application.bot
-    await telethon_client.start()
-    logger.info("⚡ Telethon Humo Listener muvaffaqiyatli ishga tushdi!")
-
+async def post_init(application):
+    await telethon_client.connect()
+    if not await telethon_client.is_user_authorized():
+        print(
+            "🛑 Sessiya yaroqsiz yoki eskirgan! Qayta avtorizatsiya kerak."
+        )
+    else:
+        print("✅ Telethon userbot sessiyasi muvaffaqiyatli ulandi!")
 async def post_shutdown(application: Application):
     if telethon_client.is_connected():
         await telethon_client.disconnect()
