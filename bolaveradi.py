@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+import os
 import sqlite3
 import re
 import asyncio
