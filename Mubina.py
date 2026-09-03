@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import os
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
