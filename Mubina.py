@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
+from telethon import TelegramClient
+from telethon.sessions import StringSession
 import sqlite3
 import re
 import asyncio
@@ -66,7 +68,7 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
+telethon_client = TelegramClient('samandar_session', API_ID, API_HASH)
 
 # ==================== RENDER KEEPALIVE SERVER ====================
 async def start_dummy_server():
