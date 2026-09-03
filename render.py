@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-import sqlite3
+import os
+from telethon.sessions import StringSession
+sqlite3
 import re
 import asyncio
 import random
@@ -9,7 +11,6 @@ import logging
 import html
 import ssl as _ssl
 import warnings
-from telethon.sessions import StringSession
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
