@@ -10,11 +10,10 @@ import logging
 import html
 import ssl as _ssl
 import warnings
-import sys
+import threading
+import http.server
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from aiohttp import web
-from dotenv import load_dotenv
 
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.request import HTTPXRequest
@@ -23,9 +22,8 @@ from telegram.ext import (
     Application, ApplicationBuilder, CommandHandler, MessageHandler,
     CallbackQueryHandler, ContextTypes, ConversationHandler, filters
 )
-from telegram.error import TelegramError
 from telethon import TelegramClient, events
-from telethon.sessions import StringSession
+
 from fragment_api import (
     STARS_PACKAGES,
     _get_ton_balance,
@@ -33,7 +31,7 @@ from fragment_api import (
     api_buy_stars,
     api_buy_premium,
     fragment_wallet_command,
-    fragment_cookie_status_command,
+    fragment_cookie_status_command
 )
 
 # PTBUserWarning ogohlantirishini yashirish
@@ -51,31 +49,16 @@ logging.getLogger("telegram.ext").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.WARNING)
 
 # ==================== ASOSIY SOZLAMALAR ====================
-load_dotenv()
+TOKEN = "7266518556:AAGpLmMBkpr7TrhPCWo9pyhfN_licVXZWVU"  # Bot Tokeningiz
+ADMIN_GROUP = "@online_quiz_tests"                      # Admin guruh username
+ADMINS = [1738809395]                                   # Admin ID raqamlari
+ORDER_CHANNEL = "https://t.me/online_quiz_tests"       # Buyurtmalar kanali
 
-TOKEN = os.getenv("BOT_TOKEN", "7266518556:AAFO01XaYg2zM_p10r_x_ODtXCPukQt5QOQ")
-ADMIN_GROUP = os.getenv("ADMIN_GROUP", "@online_quiz_tests")
-ADMINS = [int(x) for x in os.getenv("ADMINS", "1738809395").split(",") if x.isdigit()]
-ORDER_CHANNEL = os.getenv("ORDER_CHANNEL", "https://t.me/online_quiz_tests")
+CARD_NUMBER = "9860190112173652"                       # To'lov kartasi
+CARD_HOLDER = "Sobirjonov Samandar"                   # Karta egasi
 
-CARD_NUMBER = os.getenv("CARD_NUMBER", "9860190112173652")
-CARD_HOLDER = os.getenv("CARD_HOLDER", "Sobirjonov Samandar")
-
-API_ID = os.getenv("API_ID", "23832062")
-API_HASH = os.getenv("API_HASH", "f734fade59b27912a11f0b475a486267")
-STRING_SESSION = os.getenv("STRING_SESSION")
-
-# StringSession qiymatini tozalash va tekshirish
-if STRING_SESSION:
-    STRING_SESSION = STRING_SESSION.strip().strip("'").strip('"')
-
-if not STRING_SESSION:
-    logger.error("XATOLIK: STRING_SESSION topilmadi! Render EnvironmentVariables bo'limini tekshiring.")
-
-try:
-    API_ID = int(API_ID)
-except ValueError:
-    logger.error("XATOLIK: API_ID integer tipida bo'lishi kerak!")
+API_ID = 23832062                                       # API ID
+API_HASH = "f734fade59b27912a11f0b475a486267"          # API HASH
 
 DB_NAME = "bot_database.db"
 STARS_MIN_QTY = 50
@@ -84,23 +67,23 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-# Telethon client yangi StringSession orqali yaratiladi
-telethon_client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
+telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
 
 # ==================== RENDER KEEPALIVE SERVER ====================
-async def start_dummy_server():
-    """Render port-scan timeout xatoligini oldini olish uchun soxta veb-server"""
-    async def handle(request):
-        return web.Response(text="Bot is 24/7 active!")
-    
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
+class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is 24/7 active!")
+
+    def log_message(self, format, *args):
+        return
+
+def run_dummy_server():
     port = int(os.environ.get("PORT", 8080))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    logger.info(f"🌐 Keep-alive server {port}-portda ishga tushdi!")
+    server = http.server.HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    logger.info(f"🌐 Keep-alive server {port}-portda muvaffaqiyatli ishga tushdi!")
+    server.serve_forever()
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
@@ -292,7 +275,7 @@ def create_payment(user_id, amount):
     exact_amount = amount + random_add
 
     code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    expires_at = created_at + 300  # 5 daqiqa
+    expires_at = created_at + 300
 
     cursor.execute("""
         INSERT INTO pending_payments (user_id, base_amount, exact_amount, code, created_at, expires_at, status)
@@ -314,7 +297,7 @@ async def process_humo_incoming_payment(amount_received, context_bot=None):
         SELECT payment_id, user_id, exact_amount FROM pending_payments 
         WHERE exact_amount = ? AND status = 'pending' AND expires_at >= ?
         ORDER BY payment_id DESC LIMIT 1
-    """, (amount_received, now - 60)) # 1 minutli bufer bilan
+    """, (amount_received, now - 60))
     row = cursor.fetchone()
 
     if row:
@@ -351,7 +334,6 @@ async def humo_card_bot_listener(event):
     text = event.raw_text
     logger.info(f"📩 HUMOcardbot xabari keldi: {text}")
     
-    # Har qanday turdagi bo'shliq va belgilarni tozalash
     match = re.search(r'([\d\s\.,\xa0]+)\s*(?:UZS|so\'m|sum)', text, re.IGNORECASE)
     if match:
         raw_sum = match.group(1)
@@ -1158,7 +1140,7 @@ async def admin_main_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     elif text == "📢 Xabar yuborish":
         await update.message.reply_text(
-            "✍️ Barcha obunachilarga yuboriladigan xabarni kiriting (Matn, rasm yoki media formatda bo'lishi mumkin):",
+            "✍️ Barcha obunachilarga yuboriladigan xabarni kiriting:",
             reply_markup=ReplyKeyboardMarkup([["◄ Orqaga"]], resize_keyboard=True)
         )
         return ADMIN_BROADCAST_MSG
@@ -1413,10 +1395,9 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 # ==================== POST INIT VA POST SHUTDOWN ====================
 async def post_init(application: Application):
-    await start_dummy_server()
     telethon_client.ptb_bot = application.bot
     await telethon_client.start()
-    logger.info("⚡ Telethon Humo Listener va Keep-alive server muvaffaqiyatli ishga tushdi!")
+    logger.info("⚡ Telethon Humo Listener muvaffaqiyatli ishga tushdi!")
 
 async def post_shutdown(application: Application):
     if telethon_client.is_connected():
@@ -1506,6 +1487,7 @@ def main():
 
 if __name__ == '__main__':
     try:
+        threading.Thread(target=run_dummy_server, daemon=True).start()
         main()
     except (KeyboardInterrupt, SystemExit):
         print("Bot to'xtatildi.")
