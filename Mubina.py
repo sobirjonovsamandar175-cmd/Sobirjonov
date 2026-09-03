@@ -47,6 +47,11 @@ from telegram.request import HTTPXRequest
 from telegram.warnings import PTBUserWarning
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+from telethon.errors import (
+    SessionPasswordNeededError,
+    PhoneCodeInvalidError,
+    PhoneCodeExpiredError,
+)
 
 # PTBUserWarning ogohlantirishini yashirish
 warnings.filterwarnings("ignore", category=PTBUserWarning)
@@ -74,7 +79,7 @@ CARD_HOLDER = "Sobirjonov Samandar"  # Karta egasi
 API_ID = int(os.getenv("API_ID", "23832062"))
 API_HASH = os.getenv("API_HASH", "f734fade59b27912a11f0b475a486267")
 
-# STRING SESSION (Agar mavjud bo'lsa environment yoki fayldan olinadi)
+# STRING SESSION (Environment yoki user_session.json faylidan)
 TELETHON_SESSION_STRING = os.getenv("TELETHON_SESSION_STRING", "")
 SESSION_FILE = "user_session.json"
 
@@ -86,7 +91,6 @@ _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
 
-# Telethon session'ini xavfsiz yuklash funksiyasi
 def get_saved_session_string():
   if TELETHON_SESSION_STRING:
     return TELETHON_SESSION_STRING
@@ -107,8 +111,6 @@ telethon_client = TelegramClient(
 
 # ==================== RENDER KEEPALIVE SERVER ====================
 async def start_dummy_server():
-  """Render port-scan timeout xatoligini oldini olish uchun soxta veb-server"""
-
   async def handle(request):
     return web.Response(text="Bot is 24/7 active!")
 
@@ -344,7 +346,6 @@ def get_premium_options():
   ]
 
 
-# ==================== TO'LOV YARATISH ====================
 def create_payment(user_id, amount):
   conn = sqlite3.connect(DB_NAME, timeout=20)
   cursor = conn.cursor()
@@ -360,7 +361,7 @@ def create_payment(user_id, amount):
   exact_amount = amount + random_add
 
   code = "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
-  expires_at = created_at + 300  # 5 daqiqa
+  expires_at = created_at + 300
 
   cursor.execute(
       """
@@ -389,7 +390,7 @@ async def process_humo_incoming_payment(amount_received, context_bot=None):
         ORDER BY payment_id DESC LIMIT 1
     """,
       (amount_received, now - 60),
-  )  # 1 minutli bufer bilan
+  )
   row = cursor.fetchone()
 
   if row:
@@ -461,7 +462,7 @@ async def humo_card_bot_listener(event):
       await process_humo_incoming_payment(clean_sum, context_bot=bot_instance)
 
 
-# ==================== HOLATLAR ====================
+# ==================== HOLATLAR (CONVERSATION STATES) ====================
 (
     MAIN,
     STARS_TARGET,
@@ -480,7 +481,10 @@ async def humo_card_bot_listener(event):
     ADMIN_SUB_ID,
     ADMIN_SUB_SUM,
     ADMIN_BROADCAST_MSG,
-) = range(17)
+    WAITING_PHONE,
+    WAITING_CODE,
+    WAITING_PASSWORD,
+) = range(20)
 
 # ==================== MENYULAR ====================
 main_menu = InlineKeyboardMarkup([
@@ -575,6 +579,129 @@ def build_premium_menu():
     rows.append([InlineKeyboardButton(label, callback_data=f"prem_{months}")])
   rows.append([InlineKeyboardButton("◄ Orqaga", callback_data="target_back")])
   return InlineKeyboardMarkup(rows), labels
+
+
+# ==================== /connect_account HANDLERLARI ====================
+async def start_connect_account(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+  uid = update.effective_user.id
+  if uid not in ADMINS:
+    await update.message.reply_text("⛔️ Bu buyruq faqat adminlar uchun!")
+    return ConversationHandler.END
+
+  await update.message.reply_text(
+      "📱 <b>Akkauntni ulash jarayoni boshlandi.</b>\n\n"
+      "Iltimos, Humo/Uzcard SMS xabarlari keladigan Telegram"
+      " telefon raqamingizni xalqaro formatda kiriting:\n"
+      "<i>(Masalan: +998901234567)</i>",
+      parse_mode="HTML",
+  )
+  return WAITING_PHONE
+
+
+async def get_connect_phone(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+  phone_number = update.message.text.strip().replace(" ", "")
+
+  temp_client = TelegramClient(StringSession(), API_ID, API_HASH)
+  await temp_client.connect()
+
+  try:
+    sent_code = await temp_client.send_code_request(phone_number)
+    context.user_data["temp_client"] = temp_client
+    context.user_data["phone"] = phone_number
+    context.user_data["phone_code_hash"] = sent_code.phone_code_hash
+
+    await update.message.reply_text(
+        "📩 <b>Telegramingizga tasdiqlash kodi yuborildi!</b>\n"
+        "Kodni kiriting (masalan: 12345):",
+        parse_mode="HTML",
+    )
+    return WAITING_CODE
+  except Exception as e:
+    await temp_client.disconnect()
+    await update.message.reply_text(
+        f"❌ Xatolik: {e}\nQaytadan urinib ko'rish uchun /connect_account bosing."
+    )
+    return ConversationHandler.END
+
+
+async def get_connect_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  code = update.message.text.strip()
+  temp_client: TelegramClient = context.user_data.get("temp_client")
+  phone = context.user_data.get("phone")
+  phone_code_hash = context.user_data.get("phone_code_hash")
+
+  try:
+    await temp_client.sign_in(
+        phone=phone, code=code, phone_code_hash=phone_code_hash
+    )
+    await finalize_connect_login(update, temp_client)
+    return ConversationHandler.END
+  except SessionPasswordNeededError:
+    await update.message.reply_text(
+        "🔐 Akkauntingizda 2-bosqichli parol (2FA) o'rnatilgan.\nParolingizni"
+        " kiriting:"
+    )
+    return WAITING_PASSWORD
+  except (PhoneCodeInvalidError, PhoneCodeExpiredError):
+    await update.message.reply_text(
+        "❌ Kod noto'g'ri yoki muddati o'tgan. Qaytadan /connect_account deb"
+        " bosing."
+    )
+    await temp_client.disconnect()
+    return ConversationHandler.END
+  except Exception as e:
+    await update.message.reply_text(f"❌ Xatolik yuz berdi: {e}")
+    await temp_client.disconnect()
+    return ConversationHandler.END
+
+
+async def get_connect_password(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+  password = update.message.text.strip()
+  temp_client: TelegramClient = context.user_data.get("temp_client")
+
+  try:
+    await temp_client.sign_in(password=password)
+    await finalize_connect_login(update, temp_client)
+  except Exception as e:
+    await update.message.reply_text(f"❌ Parol noto'g'ri yoki xatolik: {e}")
+    await temp_client.disconnect()
+
+  return ConversationHandler.END
+
+
+async def finalize_connect_login(
+    update: Update, temp_client: TelegramClient
+):
+  session_str = temp_client.session.save()
+  data = {"session": session_str}
+
+  with open(SESSION_FILE, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=4)
+
+  await temp_client.disconnect()
+
+  # Asosiy Telethon clientini yangi session bilan ulash
+  try:
+    if telethon_client.is_connected():
+      await telethon_client.disconnect()
+    telethon_client.session = StringSession(session_str)
+    await telethon_client.connect()
+    logger.info("⚡ Telethon yangi session bilan muvaffaqiyatli ulindi!")
+  except Exception as e:
+    logger.error(f"Telethon qayta ulanishida xato: {e}")
+
+  await update.message.reply_text(
+      "✅ <b>Akkaunt muvaffaqiyatli ulandi!</b>\n\n"
+      "<code>user_session.json</code> fayli saqlandi va Telethon ushbu"
+      " akkauntga ulangan holda ishga tushdi.",
+      parse_mode="HTML",
+  )
 
 
 # ==================== BOT START ====================
@@ -1540,7 +1667,6 @@ async def admin_main_handler(
     return await start(update, context)
 
 
-# ==================== ADMIN BROADCAST HANDLER ====================
 async def admin_broadcast_msg(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ):
@@ -1619,7 +1745,6 @@ async def set_price_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
   return ADMIN_MAIN
 
 
-# ==================== BALANS QO'SHISH HANDLERLARI ====================
 async def admin_pay_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
   text = update.message.text
   if text == "◄ Orqaga":
@@ -1661,7 +1786,6 @@ async def admin_pay_sum(update: Update, context: ContextTypes.DEFAULT_TYPE):
   return ADMIN_MAIN
 
 
-# ==================== BALANS AYIRISH HANDLERLARI ====================
 async def admin_sub_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
   text = update.message.text
   if text == "◄ Orqaga":
@@ -1841,6 +1965,13 @@ async def group_balance_handler(
     )
 
 
+async def cancel_conversation(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+  await update.message.reply_text("Jarayon bekor qilindi.")
+  return ConversationHandler.END
+
+
 async def error_handler(
     update: object, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -1852,7 +1983,6 @@ async def post_init(application: Application):
   await start_dummy_server()
   telethon_client.ptb_bot = application.bot
 
-  # Telethon-ni xavfsiz ishga tushirish (xatolik bo'lsa botni to'xtatmaydi)
   try:
     await telethon_client.connect()
     if await telethon_client.is_user_authorized():
@@ -1862,8 +1992,8 @@ async def post_init(application: Application):
       )
     else:
       logger.warning(
-          "⚠️ Telethon akkauntga ulanmagan. Avto-to'lovlar uchun akkauntni"
-          " saqlash lozim."
+          "⚠️ Telethon akkauntga ulanmagan. /connect_account buyrug'i orqali"
+          " ulaning."
       )
   except Exception as e:
     logger.error(f"Telethon ulanishida xatolik: {e}")
@@ -1887,7 +2017,31 @@ def main():
       .build()
   )
 
-  conv_handler = ConversationHandler(
+  # Connect account handler
+  connect_conv = ConversationHandler(
+      entry_points=[CommandHandler("connect_account", start_connect_account)],
+      states={
+          WAITING_PHONE: [
+              MessageHandler(
+                  filters.TEXT & ~filters.COMMAND, get_connect_phone
+              )
+          ],
+          WAITING_CODE: [
+              MessageHandler(filters.TEXT & ~filters.COMMAND, get_connect_code)
+          ],
+          WAITING_PASSWORD: [
+              MessageHandler(
+                  filters.TEXT & ~filters.COMMAND, get_connect_password
+              )
+          ],
+      },
+      fallbacks=[CommandHandler("cancel", cancel_conversation)],
+      per_chat=True,
+      per_user=True,
+  )
+
+  # Asosiy conversation handler
+  main_conv = ConversationHandler(
       entry_points=[
           CommandHandler("start", start),
           CommandHandler("sredo", admin_start),
@@ -2002,7 +2156,8 @@ def main():
       per_message=False,
   )
 
-  bot_app.add_handler(conv_handler)
+  bot_app.add_handler(connect_conv)
+  bot_app.add_handler(main_conv)
   bot_app.add_handler(CommandHandler("wallet", fragment_wallet_command))
   bot_app.add_handler(
       CommandHandler("fragment_cookie_status", fragment_cookie_status_command)
