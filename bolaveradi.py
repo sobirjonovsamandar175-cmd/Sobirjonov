@@ -66,10 +66,9 @@ _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
 session_str = os.getenv("TELETHON_SESSION")
-   telethon_client = TelegramClient(
-       StringSession(session_str), API_ID, API_HASH
-   )
-
+telethon_client = TelegramClient(
+    StringSession(session_str), API_ID, API_HASH
+)
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
     conn = sqlite3.connect(DB_NAME, timeout=20)
