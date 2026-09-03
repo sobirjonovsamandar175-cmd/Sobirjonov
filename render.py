@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
 import sqlite3
 import re
 import asyncio
@@ -10,6 +9,7 @@ import logging
 import html
 import ssl as _ssl
 import warnings
+from telethon.sessions import StringSession
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -65,7 +65,12 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
+session_str = os.getenv("TELETHON_SESSION", "")
+
+if session_str:
+    telethon_client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
+else:
+    telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
