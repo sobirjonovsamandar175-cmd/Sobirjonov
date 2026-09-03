@@ -1,7 +1,19 @@
 # -*- coding: utf-8 -*-
 import os
+import os
 from telethon import TelegramClient
 from telethon.sessions import StringSession
+
+STRING_SESSION = os.getenv("Samandar_SESSION")
+
+telethon_client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
+
+async def post_init(application):
+    await telethon_client.connect()
+    if not await telethon_client.is_user_authorized():
+        print("Telethon avtorizatsiyadan o'tmagan!")
+    else:
+        print("Telethon muvaffaqiyatli ulandi!")
 import sqlite3
 import re
 import asyncio
