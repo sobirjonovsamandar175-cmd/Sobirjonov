@@ -49,7 +49,7 @@ logging.getLogger("telegram.ext").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.WARNING)
 
 # ==================== ASOSIY SOZLAMALAR ====================
-TOKEN = "7266518556:AAGpLmMBkpr7TrhPCWo9pyhfN_licVXZWVU"  # Bot Tokeningiz
+TOKEN = "7266518556:AAFO01XaYg2zM_p10r_x_ODtXCPukQt5QOQ"  # Bot Tokeningiz
 ADMIN_GROUP = "@online_quiz_tests"                      # Admin guruh username
 ADMINS = [1738809395]                                   # Admin ID raqamlari
 ORDER_CHANNEL = "https://t.me/online_quiz_tests"       # Buyurtmalar kanali
