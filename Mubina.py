@@ -53,7 +53,7 @@ logging.getLogger("telethon").setLevel(logging.WARNING)
 # ==================== ASOSIY SOZLAMALAR ====================
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN", "7266518556:AAGpLmMBkpr7TrhPCWo9pyhfN_licVXZWVU")
+TOKEN = os.getenv("BOT_TOKEN", "7266518556:AAFO01XaYg2zM_p10r_x_ODtXCPukQt5QOQ")
 ADMIN_GROUP = os.getenv("ADMIN_GROUP", "@online_quiz_tests")
 ADMINS = [int(x) for x in os.getenv("ADMINS", "1738809395").split(",") if x.isdigit()]
 ORDER_CHANNEL = os.getenv("ORDER_CHANNEL", "https://t.me/online_quiz_tests")
