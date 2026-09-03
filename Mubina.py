@@ -66,8 +66,11 @@ STARS_MIN_QTY = 50
 _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
+import os
+from telethon.sessions import StringSession
 
-telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
+SESSION_STRING = os.getenv("SESSION_STRING", "")
+telethon_client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 
 # ==================== RENDER KEEPALIVE SERVER ====================
 class SimpleHTTPRequestHandler(http.server.BaseHTTPRequestHandler):
