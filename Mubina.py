@@ -5,7 +5,7 @@ from telethon.sessions import StringSession
 
 STRING_SESSION = os.getenv("Samandar_SESSION")
 
-telethon_client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
+telethon_client = TelegramClient(StringSession(Samandar_SESSION), API_ID, API_HASH)
 
 async def post_init(application):
     await telethon_client.connect()
