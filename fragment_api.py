@@ -27,6 +27,8 @@ from telethon import TelegramClient, events
 from fragment_api import (
     STARS_PACKAGES,
     _get_ton_balance,
+    ...
+)
     get_fragment_stars_prices_bulk,
     api_buy_stars,
     api_buy_premium,
