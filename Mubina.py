@@ -34,7 +34,6 @@ from fragment_api import (
     fragment_cookie_status_command,
 )
 
-# PTBUserWarning ogohlantirishini yashirish
 warnings.filterwarnings("ignore", category=PTBUserWarning)
 
 # ==================== LOGGING ====================
@@ -48,7 +47,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram.ext").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.WARNING)
 
-# ==================== ASOSIY SOZLAMALAR ====================
+# ==================== SOZLAMALAR ====================
 TOKEN = os.getenv("BOT_TOKEN", "7266518556:AAGpLmMBkpr7TrhPCWo9pyhfN_licVXZWVU")
 ADMIN_GROUP = os.getenv("ADMIN_GROUP", "@online_quiz_tests")
 ADMINS = [1738809395]
@@ -64,19 +63,12 @@ STRING_SESSION = os.getenv("STRING_SESSION", "")
 DB_NAME = "bot_database.db"
 STARS_MIN_QTY = 50
 
-_SSL_CTX = _ssl.create_default_context()
-_SSL_CTX.check_hostname = False
-_SSL_CTX.verify_mode = _ssl.CERT_NONE
-
-# StringSession orqali yaratish (Render uchun)
 telethon_client = TelegramClient(StringSession(STRING_SESSION), API_ID, API_HASH)
 
-# ==================== RENDER KEEPALIVE SERVER ====================
+# ==================== RENDER KEEPALIVE ====================
 async def start_dummy_server():
-    """Render port-scan timeout xatoligini oldini olish uchun soxta veb-server"""
     async def handle(request):
-        return web.Response(text="Bot is 24/7 active!")
-    
+        return web.Response(text="Bot is active!")
     app = web.Application()
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
@@ -84,7 +76,6 @@ async def start_dummy_server():
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    logger.info(f"🌐 Keep-alive server {port}-portda ishga tushdi!")
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
@@ -111,17 +102,6 @@ def init_db():
             external_id TEXT
         )
     """)
-    
-    cursor.execute("PRAGMA table_info(users)")
-    cols = [row[1] for row in cursor.fetchall()]
-    if "incognito" not in cols:
-        cursor.execute("ALTER TABLE users ADD COLUMN incognito INTEGER DEFAULT 0")
-
-    cursor.execute("PRAGMA table_info(orders)")
-    cols_o = [row[1] for row in cursor.fetchall()]
-    if "external_id" not in cols_o:
-        cursor.execute("ALTER TABLE orders ADD COLUMN external_id TEXT")
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS pending_payments (
             payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -134,7 +114,6 @@ def init_db():
             status TEXT DEFAULT 'pending'
         )
     """)
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS payments (
             payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -143,14 +122,12 @@ def init_db():
             status TEXT DEFAULT 'Tasdiqlandi'
         )
     """)
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value INTEGER
         )
     """)
-
     default_settings = [
         ('price_star', 190),
         ('premium_3', 145000),
@@ -159,7 +136,6 @@ def init_db():
     ]
     for key, val in default_settings:
         cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, val))
-
     conn.commit()
     conn.close()
 
@@ -221,10 +197,8 @@ def save_user(user_id, username):
     conn = sqlite3.connect(DB_NAME, timeout=20)
     cursor = conn.cursor()
     clean_username = username.replace("@", "") if username else None
-    
     cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
     exists = cursor.fetchone()
-    
     is_new = False
     if not exists:
         cursor.execute("INSERT INTO users (user_id, username, balance, incognito) VALUES (?, ?, 0, 0)", (user_id, clean_username))
@@ -232,7 +206,6 @@ def save_user(user_id, username):
     else:
         if clean_username:
             cursor.execute("UPDATE users SET username = ? WHERE user_id = ?", (clean_username, user_id))
-            
     conn.commit()
     conn.close()
     return is_new
@@ -274,9 +247,8 @@ def create_payment(user_id, amount):
 
     random_add = random.randint(1, 10)
     exact_amount = amount + random_add
-
     code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    expires_at = created_at + 300  # 5 daqiqa
+    expires_at = created_at + 300 
 
     cursor.execute("""
         INSERT INTO pending_payments (user_id, base_amount, exact_amount, code, created_at, expires_at, status)
@@ -288,7 +260,7 @@ def create_payment(user_id, amount):
     conn.close()
     return payment_id, exact_amount, code, created_at, expires_at
 
-# ==================== TELETHON LISTENER (AUTO-PAYMENT) ====================
+# ==================== TELETHON (AVTO-TO'LOV TINGLASH) ====================
 async def process_humo_incoming_payment(amount_received, context_bot=None):
     conn = sqlite3.connect(DB_NAME, timeout=20)
     cursor = conn.cursor()
@@ -298,7 +270,7 @@ async def process_humo_incoming_payment(amount_received, context_bot=None):
         SELECT payment_id, user_id, exact_amount FROM pending_payments 
         WHERE exact_amount = ? AND status = 'pending' AND expires_at >= ?
         ORDER BY payment_id DESC LIMIT 1
-    """, (amount_received, now - 60)) # 1 minutli bufer bilan
+    """, (amount_received, now - 120))
     row = cursor.fetchone()
 
     if row:
@@ -318,13 +290,13 @@ async def process_humo_incoming_payment(amount_received, context_bot=None):
                     parse_mode="HTML"
                 )
             except Exception as e:
-                logger.error(f"Foydalanuvchiga xabar yuborishda xato: {e}")
+                logger.error(f"Foydalanuvchiga bildirishnoma yuborishda xato: {e}")
 
             try:
                 log_msg = f"💳 <b>YANGI TO'LOV TASDIQLANDI!</b>\n\n👤 User ID: <code>{user_id}</code>\n💰 Summa: <b>{exact_amount:,} so'm</b>"
                 await context_bot.send_message(chat_id=ADMIN_GROUP, text=log_msg, parse_mode="HTML")
             except Exception as e:
-                logger.error(f"Guruhga xabarnoma yuborishda xato: {e}")
+                logger.error(f"Guruhga log yuborishda xato: {e}")
         return True
     
     conn.close()
@@ -335,6 +307,7 @@ async def humo_card_bot_listener(event):
     text = event.raw_text
     logger.info(f"📩 HUMOcardbot xabari keldi: {text}")
     
+    # SMS formatidan pul miqdorini aniqlash (turli probel va formatlarga moslashtirilgan)
     match = re.search(r'([\d\s\.,\xa0]+)\s*(?:UZS|so\'m|sum)', text, re.IGNORECASE)
     if match:
         raw_sum = match.group(1)
@@ -342,7 +315,7 @@ async def humo_card_bot_listener(event):
             
         if clean_sum_str.isdigit():
             clean_sum = int(clean_sum_str)
-            logger.info(f"📥 @HUMOcardbot'dan aniqlangan summa: {clean_sum} UZS")
+            logger.info(f"📥 Aniqlangan summa: {clean_sum} UZS")
             bot_instance = getattr(telethon_client, 'ptb_bot', None)
             await process_humo_incoming_payment(clean_sum, context_bot=bot_instance)
 
@@ -352,12 +325,12 @@ async def humo_card_bot_listener(event):
     STARS_TARGET, STARS_QTY_INPUT,
     GIFT_TARGET, GIFT_CHOOSE,
     PREMIUM_TARGET, PREMIUM_CHOOSE,
-    PAY_AMOUNT, PAY_CHECK,
+    PAY_AMOUNT,
     ADMIN_MAIN, SET_PRICE_CHOOSE, SET_PRICE_VALUE, 
     ADMIN_PAY_ID, ADMIN_PAY_SUM,
     ADMIN_SUB_ID, ADMIN_SUB_SUM,
     ADMIN_BROADCAST_MSG
-) = range(17)
+) = range(16)
 
 # ==================== MENYULAR ====================
 main_menu = InlineKeyboardMarkup([
@@ -445,12 +418,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.set_my_commands([BotCommand("start", "🤖 Botni qayta ishga tushirish / Menyu")])
     balance, _ = get_user_data(uid)
 
-    remove_msg = await update.message.reply_text("🔄", reply_markup=ReplyKeyboardRemove())
-    try:
-        await remove_msg.delete()
-    except Exception:
-        pass
-
     await update.message.reply_text(
         f"👑 <b>Xush kelibsiz!</b>\n\n"
         f"👤 <b>Foydalanuvchi:</b> {md_escape(update.message.from_user.full_name)}\n"
@@ -463,7 +430,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     return MAIN
 
-# ==================== INLINE ASOSIY MENYU ====================
+# ==================== MAIN CALLBACKS ====================
 async def render_profile(query_or_msg, uid, is_edit=False):
     balance, incognito = get_user_data(uid)
     orders_count, total_spent = get_user_stats(uid)
@@ -830,7 +797,7 @@ async def gift_choose_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     return MAIN
 
-# ==================== BUYURTMANI TASDIQLASH VA GURUHGA YUBORISH ====================
+# ==================== BUYURTMANI TASDIQLASH ====================
 async def confirm_order_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     try:
@@ -852,7 +819,7 @@ async def confirm_order_callback(update: Update, context: ContextTypes.DEFAULT_T
     target = context.user_data.get("link") or context.user_data.get("target")
 
     if not service or price <= 0 or not target:
-        await query.message.edit_text("⚠️ Buyurtma ma'lumotlari topilmadi yoki sessiya vaqti tugadi. Iltimos qaytadan urining.")
+        await query.message.edit_text("⚠️ Buyurtma ma'lumotlari topilmadi yoki sessiya vaqti tugadi.")
         await query.message.reply_text("👇 Kerakli xizmatni tanlang:", reply_markup=main_menu)
         context.user_data.clear()
         return MAIN
@@ -1007,10 +974,12 @@ async def pay_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def check_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    # Qatib qolishni oldini olish uchun qat'iy answer() chaqiriladi
     try:
         await query.answer()
     except Exception:
         pass
+
     data = query.data
     payment_id = int(data.split("_")[-1])
 
@@ -1022,7 +991,7 @@ async def check_payment_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     if not row:
         await query.answer("❌ To'lov so'rovi topilmadi.", show_alert=True)
-        return
+        return MAIN
 
     status, exact_amount, expires_at = row
     now = int(time.time())
@@ -1030,12 +999,15 @@ async def check_payment_callback(update: Update, context: ContextTypes.DEFAULT_T
     if status == 'completed':
         await query.answer("🎉 To'lov muvaffaqiyatli qabul qilindi!", show_alert=True)
         await query.message.edit_text(f"✅ Ushbu to'lov ({exact_amount:,} so'm) hisobingizga tushirildi.")
+        await query.message.reply_text("👇 Kerakli xizmatni tanlang:", reply_markup=main_menu)
     elif status == 'cancelled':
         await query.answer("❌ Bu to'lov so'rovi bekor qilingan.", show_alert=True)
     elif now > expires_at:
         await query.answer("⏰ To'lov kutilish vaqti (5 daqiqa) tugagan.", show_alert=True)
     else:
         await query.answer(f"⏳ To'lov hali kelmadi. Kartaga aynan {exact_amount:,} so'm o'tkazganingizdan so'ng biroz kuting.", show_alert=True)
+    
+    return MAIN
 
 async def cancel_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1043,6 +1015,7 @@ async def cancel_payment_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.answer()
     except Exception:
         pass
+
     data = query.data
     payment_id = int(data.split("_")[-1])
 
@@ -1054,8 +1027,9 @@ async def cancel_payment_callback(update: Update, context: ContextTypes.DEFAULT_
 
     await query.message.edit_text("⚠️ To'lov so'rovi bekor qilindi.")
     await query.message.reply_text("👇 Kerakli xizmatni tanlang:", reply_markup=main_menu)
+    return MAIN
 
-# ==================== ADMIN PANEL HANDLERLARI (/sredo) ====================
+# ==================== ADMIN PANEL ====================
 async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.message.from_user.id
     if uid not in ADMINS:
@@ -1141,7 +1115,7 @@ async def admin_main_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     elif text == "📢 Xabar yuborish":
         await update.message.reply_text(
-            "✍️ Barcha obunachilarga yuboriladigan xabarni kiriting (Matn, rasm yoki media formatda bo'lishi mumkin):",
+            "✍️ Barcha obunachilarga yuboriladigan xabarni kiriting:",
             reply_markup=ReplyKeyboardMarkup([["◄ Orqaga"]], resize_keyboard=True)
         )
         return ADMIN_BROADCAST_MSG
@@ -1157,7 +1131,6 @@ async def admin_main_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif text == "🏠 Asosiy menyu":
         return await start(update, context)
 
-# ==================== ADMIN BROADCAST HANDLER ====================
 async def admin_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "◄ Orqaga":
@@ -1225,7 +1198,6 @@ async def set_price_value(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Narx muvaffaqiyatli yangilandi!", reply_markup=admin_menu)
     return ADMIN_MAIN
 
-# ==================== BALANS QO'SHISH HANDLERLARI ====================
 async def admin_pay_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "◄ Orqaga":
@@ -1257,7 +1229,6 @@ async def admin_pay_sum(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
     return ADMIN_MAIN
 
-# ==================== BALANS AYIRISH HANDLERLARI ====================
 async def admin_sub_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "◄ Orqaga":
@@ -1289,7 +1260,6 @@ async def admin_sub_sum(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
     return ADMIN_MAIN
 
-# ==================== ADMIN INLINE HANDLER ====================
 async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     try:
@@ -1346,7 +1316,6 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.commit()
     conn.close()
 
-# ==================== GURUH BALANS HANDLERI ====================
 async def group_balance_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -1394,18 +1363,15 @@ async def group_balance_handler(update: Update, context: ContextTypes.DEFAULT_TY
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Xatolik yuz berdi:", exc_info=context.error)
 
-# ==================== POST INIT VA POST SHUTDOWN ====================
+# ==================== POST INIT / SHUTDOWN ====================
 async def post_init(application: Application):
     await start_dummy_server()
     telethon_client.ptb_bot = application.bot
     
-    # Render muhiti uchun xavfsiz ulanish:
     if STRING_SESSION:
-        await telethon_client.connect()
-        if await telethon_client.is_user_authorized():
-            logger.info("⚡ Telethon Humo Listener muvaffaqiyatli ishga tushdi!")
-        else:
-            logger.warning("⚠️ Telethon avtorizatsiyadan o'tmagan! STRING_SESSION ni tekshiring.")
+        # Client to'liq ishga tushishi va xabarlarni tinglashi uchun start() ishlatiladi
+        await telethon_client.start()
+        logger.info("⚡ Telethon Humo Listener muvaffaqiyatli ishga tushdi va xabarlarni tinglamoqda!")
     else:
         logger.warning("⚠️ STRING_SESSION o'zgaruvchisi topilmadi.")
 
@@ -1438,6 +1404,7 @@ def main():
                 CallbackQueryHandler(target_callback_handler, pattern=r"^target_(self|back)$"),
                 CallbackQueryHandler(stars_qty_callback, pattern=r"^stars_(qty_50|qty_100|qty_150|qty_custom|back)$"),
                 CallbackQueryHandler(confirm_order_callback, pattern=r"^confirm_(yes|no)$"),
+                # Check hamda Cancel payment tugmalari universal qilib qo'shildi
                 CallbackQueryHandler(check_payment_callback, pattern=r"^check_pay_\d+$"),
                 CallbackQueryHandler(cancel_payment_callback, pattern=r"^cancel_pay_\d+$")
             ],
@@ -1478,7 +1445,9 @@ def main():
         },
         fallbacks=[
             CommandHandler("start", start),
-            CommandHandler("sredo", admin_start)
+            CommandHandler("sredo", admin_start),
+            CallbackQueryHandler(check_payment_callback, pattern=r"^check_pay_\d+$"),
+            CallbackQueryHandler(cancel_payment_callback, pattern=r"^cancel_pay_\d+$")
         ],
         per_chat=True,
         per_user=True,
