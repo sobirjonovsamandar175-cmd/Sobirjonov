@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 from telethon.sessions import StringSession
-sqlite3
+import sqlite3
 import re
 import asyncio
 import random
