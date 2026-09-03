@@ -2,7 +2,7 @@
 # Fragment/Telegram maxfiy ma'lumotlarini shu yerga kiriting.
 # Ularni hech kimga yubormang.
 
-TOKEN = "8472714759:AAGbatxGXWMxnbQOc4zoH3RpJABV1p_9gus"
+TOKEN = "7266518556:AAFO01XaYg2zM_p10r_x_ODtXCPukQt5QOQ"
 
 # Fragment bilan ishlaydigan TON wallet seed.
 TON_SEED = "crisp blood allow ancient two between exhaust raw knife defy shiver fly laugh strong air giggle next atom system valley census soda cave casino"
