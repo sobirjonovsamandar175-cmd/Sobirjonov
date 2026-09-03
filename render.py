@@ -71,7 +71,7 @@ session_str = os.getenv("TELETHON_SESSION", "")
 if session_str:
     telethon_client = TelegramClient(StringSession(session_str), API_ID, API_HASH)
 else:
-    telethon_client = TelegramClient('humo_userbot_session.session', API_ID, API_HASH)
+    telethon_client = TelegramClient('samandar_session', API_ID, API_HASH)
 
 # ==================== MA'LUMOTLAR BAZASI ====================
 def init_db():
