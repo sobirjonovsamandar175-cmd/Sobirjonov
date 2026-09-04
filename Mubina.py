@@ -73,7 +73,7 @@ _SSL_CTX.verify_mode = _ssl.CERT_NONE
 if SESSION_STRING:
     telethon_client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
 else:
-    telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
+    telethon_client = TelegramClient('humo_userbot_session.session', API_ID, API_HASH)
 
 # ==================== RENDER KEEPALIVE SERVER ====================
 async def start_dummy_server():
