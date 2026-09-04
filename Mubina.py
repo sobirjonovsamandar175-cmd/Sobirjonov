@@ -23,6 +23,8 @@ from telegram.ext import (
 )
 from telegram.error import TelegramError
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
+
 from fragment_api import (
     STARS_PACKAGES,
     _get_ton_balance,
@@ -58,6 +60,7 @@ CARD_HOLDER = os.getenv("CARD_HOLDER", "Sobirjonov Samandar")
 
 API_ID = int(os.getenv("API_ID", "23832062"))
 API_HASH = os.getenv("API_HASH", "f734fade59b27912a11f0b475a486267")
+SESSION_STRING = os.getenv("SESSION_STRING", "")
 
 DB_NAME = "bot_database.db"
 STARS_MIN_QTY = 50
@@ -66,7 +69,11 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
+# Telethon Klientini StringSession orqali xavfsiz yaratish
+if SESSION_STRING:
+    telethon_client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
+else:
+    telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
 
 # ==================== RENDER KEEPALIVE SERVER ====================
 async def start_dummy_server():
@@ -1417,6 +1424,7 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
+            CommandHandler("connect", start),
             CommandHandler("sredo", admin_start)
         ],
         states={
@@ -1466,6 +1474,7 @@ def main():
         },
         fallbacks=[
             CommandHandler("start", start),
+            CommandHandler("connect", start),
             CommandHandler("sredo", admin_start)
         ],
         per_chat=True,
