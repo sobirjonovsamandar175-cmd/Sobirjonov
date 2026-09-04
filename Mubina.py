@@ -23,8 +23,6 @@ from telegram.ext import (
 )
 from telegram.error import TelegramError
 from telethon import TelegramClient, events
-from telethon.sessions import StringSession
-
 from fragment_api import (
     STARS_PACKAGES,
     _get_ton_balance,
@@ -50,17 +48,16 @@ logging.getLogger("telegram.ext").setLevel(logging.WARNING)
 logging.getLogger("telethon").setLevel(logging.WARNING)
 
 # ==================== ASOSIY SOZLAMALAR ====================
-TOKEN = os.getenv("BOT_TOKEN", "7266518556:AAGpLmMBkpr7TrhPCWo9pyhfN_licVXZWVU")
-ADMIN_GROUP = os.getenv("ADMIN_GROUP", "@online_quiz_tests")
-ADMINS = [int(x) for x in os.getenv("ADMINS", "1738809395").split(",") if x.isdigit()]
-ORDER_CHANNEL = os.getenv("ORDER_CHANNEL", "https://t.me/online_quiz_tests")
+TOKEN = "7266518556:AAFO01XaYg2zM_p10r_x_ODtXCPukQt5QOQ"                       # Bot Tokeningiz
+ADMIN_GROUP = "@online_quiz_tests"                       # Admin guruh username
+ADMINS = [1738809395]                                    # Admin ID raqamlari
+ORDER_CHANNEL = "https://t.me/online_quiz_tests"       # Buyurtmalar kanali
 
-CARD_NUMBER = os.getenv("CARD_NUMBER", "9860190112173652")
-CARD_HOLDER = os.getenv("CARD_HOLDER", "Sobirjonov Samandar")
+CARD_NUMBER = "9860190112173652"                        # To'lov kartasi
+CARD_HOLDER = Sobirjonov Samandar                          # Karta egasi
 
-API_ID = int(os.getenv("API_ID", "23832062"))
-API_HASH = os.getenv("API_HASH", "f734fade59b27912a11f0b475a486267")
-SESSION_STRING = os.getenv("SESSION_STRING", "")
+API_ID = 23832062                                        # Telethon API ID
+API_HASH = "f734fade59b27912a11f0b475a486267"                     # Telethon API HASH
 
 DB_NAME = "bot_database.db"
 STARS_MIN_QTY = 50
@@ -69,11 +66,7 @@ _SSL_CTX = _ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = _ssl.CERT_NONE
 
-# Telethon Klientini StringSession orqali xavfsiz yaratish
-if SESSION_STRING:
-    telethon_client = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH)
-else:
-    telethon_client = TelegramClient('humo_userbot_session.session', API_ID, API_HASH)
+telethon_client = TelegramClient('humo_userbot_session', API_ID, API_HASH)
 
 # ==================== RENDER KEEPALIVE SERVER ====================
 async def start_dummy_server():
@@ -302,7 +295,7 @@ async def process_humo_incoming_payment(amount_received, context_bot=None):
         SELECT payment_id, user_id, exact_amount FROM pending_payments 
         WHERE exact_amount = ? AND status = 'pending' AND expires_at >= ?
         ORDER BY payment_id DESC LIMIT 1
-    """, (amount_received, now - 60))
+    """, (amount_received, now - 60)) # 1 minutli bufer bilan
     row = cursor.fetchone()
 
     if row:
@@ -339,6 +332,7 @@ async def humo_card_bot_listener(event):
     text = event.raw_text
     logger.info(f"📩 HUMOcardbot xabari keldi: {text}")
     
+    # Har qanday turdagi bo'shliq va belgilarni tozalash
     match = re.search(r'([\d\s\.,\xa0]+)\s*(?:UZS|so\'m|sum)', text, re.IGNORECASE)
     if match:
         raw_sum = match.group(1)
@@ -497,7 +491,7 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if data == "main_stars":
         context.user_data["current_service"] = "stars"
         await query.message.edit_text(
-            "🔎 <b>Stars xarid qilish</b>\n\nStars yuborilishi kerak bo'lgan foydalanuvchi username'ini kiriting:\n✍️ Misol: @Sobirjonov_uz",
+            "🔎 <b>Stars xarid qilish</b>\n\nStars yuborilishi kerak bo'lgan foydalanuvchi username'ini kiriting:\n✍️ Misol: @username",
             reply_markup=target_menu,
             parse_mode="HTML"
         )
@@ -506,7 +500,7 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif data == "main_premium":
         context.user_data["current_service"] = "premium"
         await query.message.edit_text(
-            "🔎 <b>Telegram Premium</b>\n\nQabul qiluvchi foydalanuvchi username'ini kiriting:\n✍️ Misol: @Sobirjonov_uz",
+            "🔎 <b>Telegram Premium</b>\n\nQabul qiluvchi foydalanuvchi username'ini kiriting:\n✍️ Misol: @username",
             reply_markup=target_menu,
             parse_mode="HTML"
         )
@@ -515,7 +509,7 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif data == "main_gift":
         context.user_data["current_service"] = "gift"
         await query.message.edit_text(
-            "🔎 <b>Telegram Gift</b>\n\nGift yubormoqchi bo'lgan foydalanuvchi username'ini kiriting:\n✍️ Misol: @Sobirjonov_uz",
+            "🔎 <b>Telegram Gift</b>\n\nGift yubormoqchi bo'lgan foydalanuvchi username'ini kiriting:\n✍️ Misol: @username",
             reply_markup=target_menu,
             parse_mode="HTML"
         )
@@ -544,7 +538,7 @@ async def main_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     elif data == "main_help":
         await query.message.edit_text(
-            "ℹ️ <b>Yordam</b>\n\n🤖 Stars, Premium va Gift sotib olish uchun balansni to'ldiring.\n❓ Savollar bo'yicha: @sobirjonov_uz",
+            "ℹ️ <b>Yordam</b>\n\n🤖 Stars, Premium va Gift sotib olish uchun balansni to'ldiring.\n❓ Savollar bo'yicha: @admin",
             parse_mode="HTML",
             reply_markup=main_menu
         )
@@ -1163,7 +1157,8 @@ async def admin_main_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 # ==================== ADMIN BROADCAST HANDLER ====================
 async def admin_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text and update.message.text == "◄ Orqaga":
+    text = update.message.text
+    if text == "◄ Orqaga":
         await update.message.reply_text("Admin paneli:", reply_markup=admin_menu)
         return ADMIN_MAIN
 
@@ -1424,7 +1419,6 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
-            CommandHandler("connect", start),
             CommandHandler("sredo", admin_start)
         ],
         states={
@@ -1474,7 +1468,6 @@ def main():
         },
         fallbacks=[
             CommandHandler("start", start),
-            CommandHandler("connect", start),
             CommandHandler("sredo", admin_start)
         ],
         per_chat=True,
