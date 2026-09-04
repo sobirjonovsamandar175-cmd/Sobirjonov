@@ -54,7 +54,7 @@ ADMINS = [1738809395]                                    # Admin ID raqamlari
 ORDER_CHANNEL = "https://t.me/online_quiz_tests"       # Buyurtmalar kanali
 
 CARD_NUMBER = "9860190112173652"                        # To'lov kartasi
-CARD_HOLDER = Sobirjonov Samandar                          # Karta egasi
+CARD_HOLDER = "Sobirjonov Samandar"                          # Karta egasi
 
 API_ID = 23832062                                        # Telethon API ID
 API_HASH = "f734fade59b27912a11f0b475a486267"                     # Telethon API HASH
